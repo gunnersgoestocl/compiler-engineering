@@ -1,0 +1,4 @@
+[submodule "takigawa"]
+	path = takigawa
+	url = git@github.com:gunnersgoestocl/miniLLVM.git
+	branch = main
