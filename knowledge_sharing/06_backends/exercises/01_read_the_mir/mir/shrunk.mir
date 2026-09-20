@@ -1,0 +1,44 @@
+# Hand-shrunk from `llc -mtriple=aarch64 -stop-before=peephole-opt -simplify-mir`
+# on ../../../lab/ir/loop.ll, following chapter 11's checklist:
+#
+#   - the LLVM IR section is gone, and with it every %ir- reference
+#     (bb.0.entry became bb.0)
+#   - the `registers:` field is gone; classes are inline on each operand
+#     (%5:gpr64), which is where the parser rebuilds it from
+#   - the top-level `liveins:` field is gone -- but the one INSIDE the body
+#     stays, because that is real dataflow, not bookkeeping
+#   - frameInfo / alignment / machineFunctionInfo / noPhis / isSSA / noVRegs
+#     are all gone; the parser recomputes them
+#   - `successors:` is gone; it is rebuilt from the terminators
+#
+# Only `name` and `tracksRegLiveness` are mandatory. Because the IR section is
+# gone, the triple must come back on the command line:
+#
+#   llc -mtriple=aarch64 -run-pass=peephole-opt shrunk.mir -o -
+---
+name:            def_in_loop_use_outside
+tracksRegLiveness: true
+body:             |
+  bb.0:
+    liveins: $x0, $x1
+
+    %5:gpr64 = COPY $x1
+    %4:gpr64 = COPY $x0
+    %7:gpr64all = COPY $xzr
+    %6:gpr64all = COPY %7
+
+  bb.1:
+    %0:gpr64sp = PHI %4, %bb.0, %3, %bb.1
+    %1:gpr64sp = PHI %6, %bb.0, %2, %bb.1
+    %8:gpr64common = ADDXri %1, 1, 0
+    %2:gpr64all = COPY %8
+    %9:gpr64sp = ADDXri %0, 2, 0
+    %3:gpr64all = COPY %9
+    %10:gpr64 = SUBSXrr %8, %5, implicit-def $nzcv
+    Bcc 3, %bb.1, implicit $nzcv
+    B %bb.2
+
+  bb.2:
+    $x0 = COPY %3
+    RET_ReallyLR implicit $x0
+...
